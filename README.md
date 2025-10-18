@@ -24,7 +24,6 @@ El agente dispone de las siguientes herramientas:
 | **`verificar_elegibilidad_producto(order_id, sku)`** | Evalúa si un producto puede ser devuelto según políticas internas. | ID del pedido, SKU | `{eligible: bool, reason: str}` |
 | **`consultar_politicas(categoria)`** | Recupera fragmentos de las políticas de devolución desde el índice RAG. | Categoría o tema | Texto explicativo |
 | **`generar_etiqueta_devolucion(order_id, sku, carrier)`** | Crea una etiqueta de devolución simulada con número RMA y enlace de descarga. | ID del pedido, SKU, transportadora | `{label_url: str, rma: str}` |
-| **`enviar_correo_confirmacion(email, rma)`** | Envía un correo (simulado) con la confirmación de devolución. | Email del usuario, número RMA | Mensaje de confirmación |
 
 Estas herramientas se diseñaron como simulaciones funcionales, pero el agente puede escalar para conectarse con sistemas reales (CRM o módulos logísticos de EcoMarket).
 
@@ -64,5 +63,7 @@ El flujo del agente se basa en tres etapas: comprensión, decisión y ejecución
 ---
 ### 5. Representación visual del flujo
  
-<img width="862" height="1715" alt="Mermaid Chart - Create complex, visual diagrams with text -2025-10-14-004705" src="https://github.com/user-attachments/assets/e40e7996-e896-4147-9097-2033948377c8" />
+
+<img width="862" height="1715" alt="Mermaid Chart - Create complex, visual diagrams with text -2025-10-18-013730" src="https://github.com/user-attachments/assets/e978e683-473e-48f1-a38e-521dc429f8a9" />
+
 
