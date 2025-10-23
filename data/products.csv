@@ -1,0 +1,21 @@
+﻿sku;name;category;returnable
+SKU-001;Shampoo Orgánico 300ml;higiene;false
+SKU-002;Cepillo de Bambú;higiene;false
+SKU-003;Café Orgánico 500g;perecedero;false
+SKU-004;Botella Reutilizable 1L;accesorio;true
+SKU-005;Bolsa Reutilizable;accesorio;true
+SKU-006;Toallas de Microfibra;hogar;true
+SKU-007;Detergente Eco 1L;limpieza;true
+SKU-008;Té Verde 200g;perecedero;false
+SKU-009;Filtro de Agua;hogar;true
+SKU-010;Set Cubiertos Bambú;accesorio;true
+SKU-011;Jabón Artesanal de Avena;higiene;false
+SKU-012;Yerba Mate Orgánica 250g;perecedero;false
+SKU-013;Taza de Cerámica Eco;hogar;true
+SKU-014;Papel Reciclado A4;oficina;true
+SKU-015;Bolígrafo Biodegradable;oficina;true
+SKU-016;Aceite de Coco 500ml;perecedero;false
+SKU-017;Crema Hidratante Vegana;higiene;false
+SKU-018;Caja de Almacenamiento Reutilizable;hogar;true
+SKU-019;Kit de Cubiertos Acero Inoxidable;accesorio;true
+SKU-020;Esponjas Vegetales;limpieza;true

@@ -19,7 +19,18 @@ class RAGRetriever:
         self.retriever = self.vs.as_retriever(search_type="similarity", search_kwargs={"k": k})
 
     def get_relevant_chunks(self, query: str) -> List[Document]:
-        return self.retriever.invoke(query)
+        # use retriever's get_relevant_documents for compatibility
+        # prefer invoke() (unified LangChain API) to avoid deprecated methods
+        try:
+            return self.retriever.invoke(query)
+        except Exception:
+            try:
+                return self.retriever.get_relevant_documents(query)
+            except Exception:
+                try:
+                    return self.retriever.get_relevant_chunks(query)
+                except Exception:
+                    return []
 
     def format_context(self, docs: List[Document]) -> str:
         lines = []
