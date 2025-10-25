@@ -84,7 +84,7 @@ with col_main:
     st.markdown("---")
     st.subheader("Historial")
     if not st.session_state.history:
-        st.info("No hay interacciones todavía. Usa el formulario o los ejemplos de la barra lateral.")
+        st.info("No hay interacciones todavía.")
     else:
         for i, item in enumerate(st.session_state.history[:20]):
             with st.expander(f"{item['prompt']}", expanded=(i==0)):

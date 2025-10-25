@@ -76,11 +76,8 @@ def main():
     r.add_argument("--days_since_delivery", type=int, required=True)
     r.add_argument("--opened", action="store_true")
 
-    f = sub.add_parser("faq", help="Preguntas frecuentes")
+    f = sub.add_parser("faq", help="Preguntas frecuentes (usa solo RAG)")
     f.add_argument("--question", required=True, help="Pregunta en lenguaje natural")
-    
-    a = sub.add_parser("agent", help="Enviar pregunta al agente de devoluciones (LangChain)")
-    a.add_argument("--question", required=True, help="Pregunta en lenguaje natural para el agente")
 
     args = ap.parse_args()
     prompts = SETTINGS["prompts"]
@@ -122,14 +119,6 @@ def main():
         else:
             sys, usr = "", q
         print(_chat(sys, f"{usr}\n\n{ctx}"))
-    elif args.cmd == "agent":
-        q = args.question
-        # give the agent both the user question and a short hint about RAG availability
-        hint = "Usa las herramientas disponibles: consultar_estado_pedido, verificar_elegibilidad_producto, consultar_politicas, generar_etiqueta_devolucion. Puedes llamar al RAG para recuperar políticas."
-        full = f"{q}\n\n[HINT]\n{hint}"
-        # lazy import to avoid circular import problems
-        from agent import handle_request
-        print(handle_request(full))
 
 if __name__ == "__main__":
     main()
