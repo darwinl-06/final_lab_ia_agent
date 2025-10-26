@@ -120,12 +120,13 @@ class ReturnAgent:
         cur.execute("SELECT tracking, status, eta, last_update FROM orders WHERE tracking = ?", (order_id,))
         row = cur.fetchone()
         conn.close()
+        # Return structured Python dict so orchestration logic can use fields deterministically
         if not row:
-            return json.dumps({"exists": False, "status": None, "date": None})
+            return {"exists": False, "status": None, "date": None}
         tracking, status, eta, last_update = row
         # prefer last_update or eta
         date_str = last_update or eta
-        return json.dumps({"exists": True, "status": status, "date": date_str})
+        return {"exists": True, "status": status, "date": date_str}
 
     def _verificar_elegibilidad_producto(self, order_id: str, sku: str) -> str:
         # Basic eligibility rules:
@@ -140,7 +141,7 @@ class ReturnAgent:
         row = cur.fetchone()
         if not row:
             conn.close()
-            return json.dumps({"eligible": False, "reason": "Pedido no encontrado"})
+            return {"eligible": False, "reason": "Pedido no encontrado"}
         status, last_update, eta = row
         # determine delivery date
         delivered_date = None
@@ -152,7 +153,7 @@ class ReturnAgent:
         prow = cur.fetchone()
         conn.close()
         if not prow:
-            return json.dumps({"eligible": False, "reason": "Producto no encontrado"})
+            return {"eligible": False, "reason": "Producto no encontrado"}
 
         _, name, category, returnable = prow
         # normalize returnable
@@ -162,11 +163,11 @@ class ReturnAgent:
             returnable_bool = True if str(returnable).lower() in ("true", "1", "t") else False
 
         if not returnable_bool:
-            return json.dumps({"eligible": False, "reason": f"El producto '{name}' no es retornable según su categoría ({category})."})
+            return {"eligible": False, "reason": f"El producto '{name}' no es retornable según su categoría ({category})."}
 
         if not delivered_date:
             # not delivered yet
-            return json.dumps({"eligible": False, "reason": "El pedido aún no ha sido entregado; no es posible iniciar la devolución."})
+            return {"eligible": False, "reason": "El pedido aún no ha sido entregado; no es posible iniciar la devolución."}
 
         # parse delivered_date as ISO-like
         try:
@@ -180,10 +181,10 @@ class ReturnAgent:
         if delivered_dt:
             days = (datetime.now() - delivered_dt).days
             if days > int(policy_window):
-                return json.dumps({"eligible": False, "reason": f"La devolución excede el plazo de {policy_window} días (han pasado {days} días)."})
+                return {"eligible": False, "reason": f"La devolución excede el plazo de {policy_window} días (han pasado {days} días)."}
 
         # otherwise eligible
-        return json.dumps({"eligible": True, "reason": "El producto cumple con las condiciones de devolución."})
+        return {"eligible": True, "reason": "El producto cumple con las condiciones de devolución."}
 
     def _consultar_politicas(self, categoria: str) -> str:
         docs = self.rag.get_relevant_chunks(categoria)
@@ -200,7 +201,143 @@ class ReturnAgent:
         rma = "RMA-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
         # Simulated URL - not hosted, but useful for UI and demo
         label_url = f"https://labels.ecomarket.test/{rma}.pdf"
-        return json.dumps({"label_url": label_url, "rma": rma})
+        return {"label_url": label_url, "rma": rma}
+
+    # --- Intent extraction and deterministic pipeline ---
+    def extract_intent(self, user_message: str) -> dict:
+        """
+        Use the LLM only to extract intent and simple fields from the user's message.
+
+        Returns a dict with keys:
+          - accion: "solicitar_devolucion" | "estado_pedido" | "politicas" | "otro"
+          - tracking_id: string or None
+          - sku: string or None
+
+        IMPORTANT: this function must return a Python dict. The LLM is instructed to
+        output ONLY a JSON object with those keys.
+        """
+        prompt = (
+            "Extrae la intención del siguiente mensaje y devuelve SOLO un JSON válido con las claves "
+            "{\"accion\", \"tracking_id\", \"sku\"}. Los valores posibles para 'accion' son: "
+            "\"solicitar_devolucion\", \"estado_pedido\", \"politicas\", \"otro\". "
+            "Si no hay tracking o sku en el mensaje, devuelve null para esos campos. "
+            "NO incluyas texto adicional fuera del JSON.\n\n"
+            f"MENSAJE: {user_message}\n\nRESPUESTA JSON:"
+        )
+        try:
+            raw = self.llm._call(prompt)
+            # parse only the first JSON object in the response
+            parsed = json.loads(raw)
+            # normalize keys
+            accion = parsed.get("accion") if isinstance(parsed.get("accion"), str) else parsed.get("action")
+            tracking = parsed.get("tracking_id") if parsed.get("tracking_id") is not None else parsed.get("tracking")
+            sku = parsed.get("sku")
+            return {"accion": accion or "otro", "tracking_id": tracking, "sku": sku}
+        except Exception:
+            # fallback: simple heuristic parsing (do not call business logic)
+            import re
+
+            tracking_match = re.search(r"(TRK[- ]?\d+)", user_message, re.IGNORECASE)
+            sku_match = re.search(r"(SKU[- ]?\d+)", user_message, re.IGNORECASE)
+            action = "otro"
+            low = user_message.lower()
+            if "devol" in low or "devolver" in low or "retornar" in low:
+                action = "solicitar_devolucion"
+            elif "estado" in low or "tracking" in low or "trk" in low:
+                action = "estado_pedido"
+            elif "polit" in low or "política" in low or "politica" in low:
+                action = "politicas"
+            return {"accion": action, "tracking_id": tracking_match.group(1) if tracking_match else None, "sku": sku_match.group(1) if sku_match else None}
+
+    def run_return_pipeline(self, tracking_id: str, sku: str) -> dict:
+        """
+        Deterministic orchestration for return flow.
+
+        Business rules (comments for developers):
+        - If exists is False -> stop and return rejected with motivo and mensaje_usuario.
+        - If eligible is False -> do not generate label; return reason exactly as provided by tool.
+        - Only if eligible is True -> call generar_etiqueta_devolucion and return aprobado with the exact rma and label_url.
+        """
+        # Ensure we do not modify tool outputs: call tools and use the returned dicts/strings as-is
+        estado = self._consultar_estado_pedido(tracking_id)
+        # estado is expected to be a dict with keys: exists, status, date
+        if not isinstance(estado, dict) or not estado.get("exists"):
+            return {
+                "status": "rechazado",
+                "motivo": f"El pedido {tracking_id} no existe o no fue encontrado.",
+                "mensaje_usuario": "No encontramos tu pedido. Verifica el número o revisa tu correo de confirmación.",
+                "pedido_status": estado.get("status") if isinstance(estado, dict) else None,
+            }
+
+        # Pedido existe: include pedido_status
+        pedido_status = estado.get("status")
+
+        eleg = self._verificar_elegibilidad_producto(tracking_id, sku)
+        # eleg expected to be dict with keys eligible (bool) and reason (string)
+        if not isinstance(eleg, dict) or not eleg.get("eligible"):
+            # fetch policies (tool may return a string)
+            polit = None
+            try:
+                polit = self._consultar_politicas(sku if sku else "general")
+            except Exception:
+                polit = None
+            return {
+                "status": "rechazado",
+                "motivo": eleg.get("reason") if isinstance(eleg, dict) else str(eleg),
+                "politicas": polit,
+                "mensaje_usuario": "Tu producto no es elegible para devolución. Te explico por qué y qué alternativas tienes.",
+                "pedido_status": pedido_status,
+            }
+
+        # eligible == True -> generate etiqueta
+        etiqueta = self._generar_etiqueta_devolucion(tracking_id, sku)
+        # etiqueta expected to be dict with keys rma and label_url
+        return {
+            "status": "aprobado",
+            "rma": etiqueta.get("rma") if isinstance(etiqueta, dict) else None,
+            "label_url": etiqueta.get("label_url") if isinstance(etiqueta, dict) else None,
+            "mensaje_usuario": "Tu devolución fue aprobada. Usa esta etiqueta y entrega el paquete en el punto indicado.",
+            "pedido_status": pedido_status,
+        }
+
+    def finalize_user_response(self, decision: dict) -> str:
+        """
+        Convert the decision dict from run_return_pipeline into a human-friendly message.
+
+        MUST NOT modify critical fields (rma, label_url, motivo). Only wrap them in text.
+        """
+        status = decision.get("status")
+        if status == "aprobado":
+            rma = decision.get("rma")
+            label = decision.get("label_url")
+            pedido_status = decision.get("pedido_status")
+            lines = [
+                "Tu devolución ha sido aprobada.",
+            ]
+            if pedido_status:
+                lines.append(f"Estado del pedido: {pedido_status}.")
+            if rma:
+                lines.append(f"Número RMA: {rma}")
+            if label:
+                lines.append(f"Descarga tu etiqueta aquí: {label}")
+            lines.append(decision.get("mensaje_usuario", ""))
+            return "\n".join(lines)
+
+        # rechazado or others
+        motivo = decision.get("motivo")
+        pedido_status = decision.get("pedido_status")
+        polit = decision.get("politicas")
+        lines = ["Lo siento — no podemos aprobar tu devolución."]
+        if pedido_status:
+            lines.append(f"Estado del pedido: {pedido_status}.")
+        if motivo:
+            # use motivo exactly as provided
+            lines.append(f"Motivo: {motivo}")
+        if polit:
+            lines.append("Políticas relacionadas:")
+            lines.append(str(polit))
+        lines.append(decision.get("mensaje_usuario", ""))
+        return "\n".join(lines)
 
     # --- run agent ---
     def run(self, prompt: str) -> str:
@@ -211,12 +348,39 @@ class ReturnAgent:
         """
         # Construct an instruction that asks the agent to use the tools and answer warmly.
         system_prompt = SETTINGS.get("prompts", {}).get("return_policy", "")
-        # Combine system and user into a single prompt the LLM wrapper will accept
-        full_prompt = f"{system_prompt}\n\nUSER:\n{prompt}\n\nRespond warmly and, when appropriate, return JSON with fields 'action' and 'details'."
+        # Orchestrator: extract intent, then run deterministic pipelines for return flows.
+        intent = self.extract_intent(prompt)
 
-        try:
-            result = self.agent_executor.run(full_prompt)
-        except Exception as e:
-            result = f"Error ejecutando el agente: {e}"
-        # ensure string
-        return str(result)
+        accion = intent.get("accion")
+        tracking = intent.get("tracking_id")
+        sku = intent.get("sku")
+
+        if accion == "solicitar_devolucion":
+            # require tracking and sku
+            if not tracking or not sku:
+                missing = []
+                if not tracking:
+                    missing.append("número de tracking")
+                if not sku:
+                    missing.append("SKU del producto")
+                return f"Por favor proporciona {', '.join(missing)} para tramitar la devolución."
+
+            decision = self.run_return_pipeline(tracking, sku)
+            return self.finalize_user_response(decision)
+
+        elif accion == "estado_pedido":
+            if not tracking:
+                return "Por favor proporciona el número de tracking para consultar el estado del pedido."
+            estado = self._consultar_estado_pedido(tracking)
+            if not isinstance(estado, dict) or not estado.get("exists"):
+                return "No encontramos tu pedido. Verifica el tracking e inténtalo de nuevo."
+            return f"Estado del pedido {tracking}: {estado.get('status')} (fecha: {estado.get('date')})."
+
+        elif accion == "politicas":
+            tema = sku or "general"
+            polit = self._consultar_politicas(tema)
+            return f"Fragmentos de políticas relevantes:\n{polit}"
+
+        else:
+            # fallback: ask for clarification so the LLM doesn't invent business logic
+            return "No estoy seguro de cómo ayudarte con eso — ¿puedes reformular tu solicitud indicando si quieres consultar un estado, solicitar una devolución o ver políticas?"

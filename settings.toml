@@ -71,8 +71,8 @@ Para proceder, por favor sigue estos pasos:
 En cuanto recibamos el producto, procesaremos tu reembolso en un plazo de 5 a 7 días hábiles. 
 Etiquetas y RMA generadas:
 
-- RMA: RMA-XXXXXXXX (ejemplo; en la respuesta real muestra el valor devuelto por la herramienta)
-- Enlace de la etiqueta: https://labels.ecomarket.test/RMA-XXXXXXXX.pdf (muestra SOLO la URL devuelta por la herramienta)
+- RMA: RMA-XXXXXXXX 
+- Enlace de la etiqueta: https://labels.ecomarket.test/RMA-XXXXXXXX.pdf (muestra la URL devuelta por la herramienta)
 
 IMPORTANTE: No incluyas URLs ni códigos inventados. Muestra únicamente los valores retornados por `generar_etiqueta_devolucion`.
 

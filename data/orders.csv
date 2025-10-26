@@ -1,21 +1,41 @@
 ﻿tracking;status;eta;carrier;tracking_url;last_update;delay_reason
-TRK-0001;Preparando envío;2025-09-24;EcoShip;https://track.eco/0001;2025-09-20;
-TRK-0002;En tránsito;2025-09-23;EcoShip;https://track.eco/0002;2025-09-20;
-TRK-0003;Retrasado;2025-09-26;EcoShip;https://track.eco/0003;2025-09-20;Operación de paquetería
-TRK-0004;Entregado;2025-09-18;EcoShip;https://track.eco/0004;2025-09-18;
-TRK-0005;En tránsito;2025-09-25;EcoShip;https://track.eco/0005;2025-09-20;
-TRK-0006;Preparando envío;2025-09-24;EcoShip;https://track.eco/0006;2025-09-20;
-TRK-0007;Retrasado;2025-09-27;EcoShip;https://track.eco/0007;2025-09-19;Clima
-TRK-0008;En tránsito;2025-09-23;EcoShip;https://track.eco/0008;2025-09-20;
-TRK-0009;Entregado;2025-09-17;EcoShip;https://track.eco/0009;2025-09-17;
-TRK-0010;En tránsito;2025-09-24;EcoShip;https://track.eco/0010;2025-09-20;
-TRK-0011;Preparando envío;2025-09-28;EcoShip;https://track.eco/0011;2025-09-22;
-TRK-0012;En tránsito;2025-09-29;EcoShip;https://track.eco/0012;2025-09-23;
-TRK-0013;Retrasado;2025-10-02;EcoShip;https://track.eco/0013;2025-09-22;Falta de inventario
-TRK-0014;Entregado;2025-09-15;EcoShip;https://track.eco/0014;2025-09-15;
-TRK-0015;En tránsito;2025-09-27;EcoShip;https://track.eco/0015;2025-09-22;
-TRK-0016;Preparando envío;2025-09-28;EcoShip;https://track.eco/0016;2025-09-23;
-TRK-0017;Retrasado;2025-10-01;EcoShip;https://track.eco/0017;2025-09-22;Problema en aduana
-TRK-0018;En tránsito;2025-09-30;EcoShip;https://track.eco/0018;2025-09-23;
-TRK-0019;Entregado;2025-09-10;EcoShip;https://track.eco/0019;2025-09-10;
-TRK-0020;En tránsito;2025-09-28;EcoShip;https://track.eco/0020;2025-09-23;
+TRK-0001;Preparando envío;2025-12-15;EcoShip;https://track.eco/0001;2025-12-10;
+TRK-0002;En tránsito;2025-12-14;EcoShip;https://track.eco/0002;2025-12-10;
+TRK-0003;Retrasado;2025-12-17;EcoShip;https://track.eco/0003;2025-12-10;Operación de paquetería
+TRK-0004;Entregado;2025-12-08;EcoShip;https://track.eco/0004;2025-12-08;
+TRK-0005;En tránsito;2025-12-16;EcoShip;https://track.eco/0005;2025-12-10;
+TRK-0006;Preparando envío;2025-12-15;EcoShip;https://track.eco/0006;2025-12-10;
+TRK-0007;Retrasado;2025-12-18;EcoShip;https://track.eco/0007;2025-12-09;Clima
+TRK-0008;En tránsito;2025-12-14;EcoShip;https://track.eco/0008;2025-12-10;
+TRK-0009;Entregado;2025-12-07;EcoShip;https://track.eco/0009;2025-12-07;
+TRK-0010;En tránsito;2025-12-15;EcoShip;https://track.eco/0010;2025-12-10;
+TRK-0011;Preparando envío;2025-12-19;EcoShip;https://track.eco/0011;2025-12-12;
+TRK-0012;En tránsito;2025-12-20;EcoShip;https://track.eco/0012;2025-12-13;
+TRK-0013;Retrasado;2025-12-23;EcoShip;https://track.eco/0013;2025-12-12;Falta de inventario
+TRK-0014;Entregado;2025-12-05;EcoShip;https://track.eco/0014;2025-12-05;
+TRK-0015;En tránsito;2025-12-18;EcoShip;https://track.eco/0015;2025-12-12;
+TRK-0016;Preparando envío;2025-12-19;EcoShip;https://track.eco/0016;2025-12-13;
+TRK-0017;Retrasado;2025-12-22;EcoShip;https://track.eco/0017;2025-12-12;Problema en aduana
+TRK-0018;En tránsito;2025-12-21;EcoShip;https://track.eco/0018;2025-12-13;
+TRK-0019;Entregado;2025-11-30;EcoShip;https://track.eco/0019;2025-11-30;
+TRK-0020;En tránsito;2025-12-19;EcoShip;https://track.eco/0020;2025-12-13;
+TRK-0021;Preparando envío;2025-10-01;EcoShip;https://track.eco/0021;2025-09-24;
+TRK-0022;En tránsito;2025-09-29;EcoShip;https://track.eco/0022;2025-09-24;
+TRK-0023;Retrasado;2025-10-03;EcoShip;https://track.eco/0023;2025-09-23;Demora en clasificación
+TRK-0024;Entregado;2025-09-22;EcoShip;https://track.eco/0024;2025-09-22;
+TRK-0025;En tránsito;2025-10-02;EcoShip;https://track.eco/0025;2025-09-25;
+TRK-0026;Preparando envío;2025-10-01;EcoShip;https://track.eco/0026;2025-09-25;
+TRK-0027;Retrasado;2025-10-05;EcoShip;https://track.eco/0027;2025-09-24;Retraso del proveedor
+TRK-0028;En tránsito;2025-10-01;EcoShip;https://track.eco/0028;2025-09-25;
+TRK-0029;Entregado;2025-09-21;EcoShip;https://track.eco/0029;2025-09-21;
+TRK-0030;En tránsito;2025-10-03;EcoShip;https://track.eco/0030;2025-09-26;
+TRK-0031;Preparando envío;2025-10-04;EcoShip;https://track.eco/0031;2025-09-26;
+TRK-0032;Retrasado;2025-10-06;EcoShip;https://track.eco/0032;2025-09-25;Problema técnico
+TRK-0033;En tránsito;2025-10-02;EcoShip;https://track.eco/0033;2025-09-26;
+TRK-0034;Entregado;2025-09-25;EcoShip;https://track.eco/0034;2025-09-25;
+TRK-0035;En tránsito;2025-10-04;EcoShip;https://track.eco/0035;2025-09-27;
+TRK-0036;Preparando envío;2025-10-05;EcoShip;https://track.eco/0036;2025-09-27;
+TRK-0037;Retrasado;2025-10-08;EcoShip;https://track.eco/0037;2025-09-26;Falla en transporte
+TRK-0038;En tránsito;2025-10-03;EcoShip;https://track.eco/0038;2025-09-27;
+TRK-0039;Entregado;2025-09-26;EcoShip;https://track.eco/0039;2025-09-26;
+TRK-0040;En tránsito;2025-10-05;EcoShip;https://track.eco/0040;2025-09-28;
