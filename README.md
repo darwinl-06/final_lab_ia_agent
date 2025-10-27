@@ -31,28 +31,33 @@ Estas herramientas se diseñaron como simulaciones funcionales, pero el agente p
 
 ### 3. Selección del marco de trabajo (framework)
 
-Para el desarrollo del agente se seleccionó **LangChain** como marco principal, por su robustez, madurez y compatibilidad directa con el sistema RAG implementado previamente en el Taller 2.
+Para el desarrollo del agente se seleccionó LangGraph como marco principal, por su enfoque moderno, modularidad y excelente integración con ecosistemas de orquestación de agentes basados en modelos de lenguaje.
 
-LangChain es actualmente uno de los frameworks más completos para la **orquestación de agentes y cadenas de razonamiento** con modelos de lenguaje. Ofrece un ecosistema modular que permite integrar modelos LLM, herramientas externas, memorias, bases vectoriales y trazabilidad de decisiones dentro de un mismo entorno de ejecución.
+LangGraph es una evolución natural del ecosistema de LangChain, diseñada para crear flujos de agentes más estructurados, trazables y robustos, basados en el paradigma de grafos de estados. Este enfoque permite definir de forma clara cómo se comunican los componentes del sistema (nodos, herramientas, memoria, razonamiento y acciones), ofreciendo mayor control sobre la lógica interna del agente.
 
-#### Justificación técnica
+**Justificación técnica**
 
-1. **Integración fluida con el sistema RAG existente:**  El Taller 2 fue desarrollado sobre LangChain para la gestión de embeddings, almacenamiento vectorial y recuperación de información. Continuar con el mismo framework garantiza **consistencia técnica**, evita retrabajo y permite reutilizar directamente los componentes ya probados (retriever, chain, y prompt templates).
+**1. Integración fluida con el sistema RAG existente:**
+El Taller 2 introdujo un sistema RAG para la recuperación de políticas e información relevante de EcoMarket.
+LangGraph permite integrar fácilmente esta capa de recuperación dentro del flujo del agente como un nodo de búsqueda independiente, manteniendo coherencia técnica con los componentes previos y garantizando reutilización del código base.
 
-2. **Arquitectura orientada a herramientas (Tools):**  LangChain proporciona un modelo nativo para registrar funciones externas como *Tools*, permitiendo al agente decidir **cuándo** y **cómo** utilizarlas.  
-   Este enfoque encaja perfectamente con la lógica del proyecto, donde el agente debe invocar acciones concretas como `verificar_elegibilidad_producto` o `generar_etiqueta_devolucion`, de manera controlada y trazable.
+**2. Arquitectura orientada a grafos de decisión (state graphs):**
+A diferencia del modelo secuencial de LangChain, LangGraph permite definir explícitamente los estados y transiciones del agente, lo que mejora la trazabilidad y el control del flujo lógico.
+Esto encaja perfectamente con el diseño del proyecto, donde el agente debe alternar entre consultar el RAG, ejecutar herramientas como `verificar_elegibilidad_producto`, o `generar la respuesta final`.
 
-3. **Transparencia en el razonamiento del agente:**  Permite visualizar cada paso del proceso de pensamiento (*Thought → Action → Observation → Final Answer*), lo cual facilita la depuración, auditoría y análisis ético del comportamiento del sistema. Esta trazabilidad es clave en aplicaciones con decisiones automatizadas sobre clientes.
+**3. Transparencia y control del razonamiento:**
+LangGraph conserva el paradigma Thought → Action → Observation → Answer, pero con mayor visibilidad sobre los pasos intermedios y el estado actual del grafo.
+Esto facilita la depuración, la observabilidad y los análisis éticos del comportamiento del sistema, especialmente al tratar con decisiones automatizadas en procesos sensibles como devoluciones o reclamos.
 
-4. **Madurez, soporte y escalabilidad:**  LangChain es ampliamente utilizado en la industria, cuenta con una comunidad activa y soporte continuo para múltiples modelos (OpenAI, Anthropic, Mistral, Cohere, entre otros).  
-   Además, ofrece integraciones nativas con frameworks de despliegue como **Streamlit**, **Gradio** y **FastAPI**, lo que simplifica el paso a la fase de demostración e implementación.
+**4. Escalabilidad y modularidad:**
+Cada nodo del grafo puede representar una herramienta, un modelo LLM o un componente de decisión, lo que permite escalar fácilmente el sistema a tareas más complejas (reclamos, cambios, actualizaciones de pedidos).
+Además, LangGraph soporta de forma nativa la integración con frameworks de despliegue como Streamlit, Gradio y FastAPI, facilitando la construcción de una aplicación web funcional para la fase de demostración.
 
-5. **Compatibilidad con arquitecturas de agentes avanzadas:**  Su ecosistema incluye controladores como **ReAct**, **ConversationalAgent**, **Plan-and-Execute** y **Tool-calling agents**, lo que permite evolucionar el proyecto hacia comportamientos más complejos sin cambiar la base tecnológica.
+**5. Ecosistema moderno y mantenido por LangChainAI:**
+Aunque LangGraph proviene del mismo equipo detrás de LangChain, su diseño más reciente soluciona limitaciones del framework anterior en términos de rendimiento, trazabilidad y flexibilidad.
+Proporciona soporte nativo para arquitecturas avanzadas de agentes como ReAct, Plan-and-Execute, Tool-calling agents y multi-agent collaboration, sin requerir estructuras complejas ni dependencias adicionales.
 
-Aunque se evaluó el uso de **LlamaIndex**, este framework está más orientado a la **gestión y consulta estructurada de conocimiento** (document retrieval) que a la planificación de acciones con herramientas.  
-LangChain, en cambio, ofrece una **mayor flexibilidad en la toma de decisiones del agente**, mejor documentación y una integración más directa con pipelines multi-herramienta.
-
-Por estas razones, **LangChain** resulta ser la opción más apropiada, asegurando una arquitectura coherente, escalable y fácilmente integrable con los desarrollos previos del proyecto.
+Su diseño basado en grafos garantiza un desarrollo más claro, reproducible y adaptable, asegurando una integración coherente con los desarrollos previos del proyecto.
 
 ---
 
@@ -65,6 +70,16 @@ El flujo del agente se basa en tres etapas: comprensión, decisión y ejecución
  
 
 <img width="862" height="1715" alt="Mermaid Chart - Create complex, visual diagrams with text -2025-10-18-013730" src="https://github.com/user-attachments/assets/e978e683-473e-48f1-a38e-521dc429f8a9" />
+
+---
+
+
+## Fase 2: Implementación del Agente
+
+### 1. Desarrollo e implementación
+
+Para desarrollar el agente de IA, se utilizó LangGraph como framework principal, integrando un sistema RAG (Retrieval-Augmented Generation) que permite consultar políticas de devolución almacenadas en una base vectorial. El agente combina capacidades de recuperación de información con herramientas específicas que simulan operaciones reales del sistema EcoMarket. Se implementó un flujo basado en grafos de estados que permite al agente tomar decisiones inteligentes sobre cuándo consultar documentación, ejecutar herramientas o generar respuestas finales, manteniendo coherencia contextual en cada interacción.
+
 
 ---
 

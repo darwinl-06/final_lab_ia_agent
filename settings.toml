@@ -49,10 +49,6 @@ USER:
 El cliente quiere devolver el producto con SKU '{sku}'.
 Usa el CONTEXTO para determinar si la devolución es posible.
 
-IMPORTANTE (comportamiento respecto a la etiqueta):.
-- No inventes ni simules URLs ni RMA en el texto; muestra exclusivamente los valores devueltos por la herramienta y proporciona instrucciones claras para descargar y usar la etiqueta.
-- Si la verificación muestra que no es elegible, puedes recuperar fragmentos de políticas con `consultar_politicas(categoria)` para explicar la razón.
-
 CONTEXTO:
 {{context}}
 
@@ -68,8 +64,6 @@ Para proceder, por favor sigue estos pasos:
 5. Entrégalo al transportador asignado o en el punto autorizado más cercano.  
 
 En cuanto recibamos el producto, procesaremos tu reembolso en un plazo de 5 a 7 días hábiles. 
-
-IMPORTANTE: No incluyas URLs ni códigos inventados. Muestra únicamente los valores retornados por `generar_etiqueta_devolucion`.
 
 Si tienes alguna pregunta o necesitas ayuda durante el proceso, puedes comunicarte con nosotros en cualquier momento mediante el chat de soporte 24/7, escribirnos al correo contacto@ecomarket.com o llamarnos al +1-800-ECOMARKET. Estaremos encantados de guiarte paso a paso.
 
