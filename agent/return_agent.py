@@ -398,10 +398,17 @@ class ReturnAgent:
     def build_return_graph(self):
         graph = StateGraph(ReturnState)
 
-        graph.add_node("consultar_estado_pedido", self.consultar_estado_pedido_node)
-        graph.add_node("verificar_elegibilidad", self.verificar_elegibilidad_node)
-        graph.add_node("consultar_politicas", self.consultar_politicas_node)
-        graph.add_node("generar_etiqueta", self.generar_etiqueta_node)
+        # When adding nodes, wrap them to allow simple console tracing when desired.
+        def _wrap_node(name, fn):
+            def _wrapped(state):
+                print(f"[AGENT TRACE] entering node: {name} | tracking={state.get('tracking_id')} sku={state.get('sku')}")
+                return fn(state)
+            return _wrapped
+
+        graph.add_node("consultar_estado_pedido", _wrap_node("consultar_estado_pedido", self.consultar_estado_pedido_node))
+        graph.add_node("verificar_elegibilidad", _wrap_node("verificar_elegibilidad", self.verificar_elegibilidad_node))
+        graph.add_node("consultar_politicas", _wrap_node("consultar_politicas", self.consultar_politicas_node))
+        graph.add_node("generar_etiqueta", _wrap_node("generar_etiqueta", self.generar_etiqueta_node))
 
         # Flujo: del estado al verificador de elegibilidad
         graph.add_edge("consultar_estado_pedido", "verificar_elegibilidad")
