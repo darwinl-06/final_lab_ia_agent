@@ -4,13 +4,61 @@ import tomllib
 import json
 import random
 import string
-from datetime import datetime, date
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TypedDict, Optional
 
-from langchain.llms.base import LLM
-from langchain.agents import initialize_agent, AgentType
-from langchain.tools import Tool
+try:
+    from langgraph.graph import StateGraph, END
+except Exception:
+    # Minimal local fallback implementation for environments without langgraph
+    # This provides just enough behaviour for tests and local runs. For
+    # production, install the real `langgraph` package.
+    END = object()
+
+    class StateGraph:
+        def __init__(self, _typed):
+            self._nodes = {}
+            self._edges = {}
+            self._conditional = {}
+            self._entry = None
+            self._finish = END
+
+        def add_node(self, name, fn):
+            self._nodes[name] = fn
+
+        def add_edge(self, src, dst):
+            self._edges[src] = dst
+
+        def add_conditional_edges(self, src, decision_fn):
+            self._conditional[src] = decision_fn
+
+        def set_entry_point(self, name):
+            self._entry = name
+
+        def set_finish_point(self, finish):
+            self._finish = finish
+
+        def compile(self):
+            return self
+
+        def invoke(self, state):
+            cur = self._entry
+            # loop until END or no node
+            while cur is not None and cur is not END:
+                fn = self._nodes.get(cur)
+                if not fn:
+                    break
+                res = fn(state)
+                if res is END:
+                    break
+                # conditional edge
+                if cur in self._conditional:
+                    cur = self._conditional[cur](state)
+                    continue
+                # simple edge
+                cur = self._edges.get(cur)
+            return state
 
 from openai import OpenAI
 from rag.retriever import RAGRetriever
@@ -26,28 +74,14 @@ def _make_client() -> OpenAI:
     )
 
 
-class OllamaLLM(LLM):
-    """A thin LangChain LLM wrapper that calls the project's OpenAI client.
+class OllamaLLM:
 
-    Implemented as a pydantic model so LangChain can instantiate it safely.
-    """
+    def __init__(self, client: OpenAI, model: str, temperature: float = 0.0):
+        self.client = client
+        self.model = model
+        self.temperature = temperature
 
-    client: OpenAI
-    model: str
-    temperature: float = 0.0
-
-    class Config:
-        arbitrary_types_allowed = True
-
-    @property
-    def _identifying_params(self) -> dict:
-        return {"model": self.model, "temperature": self.temperature}
-
-    @property
-    def _llm_type(self) -> str:
-        return "ollama"
-
-    def _call(self, prompt: str, stop: list[str] | None = None) -> str:
+    def _call(self, prompt: str) -> str:
         messages = [{"role": "user", "content": prompt}]
         r = self.client.chat.completions.create(
             model=self.model,
@@ -57,6 +91,15 @@ class OllamaLLM(LLM):
         return r.choices[0].message.content.strip()
 
 
+class ReturnState(TypedDict):
+    tracking_id: str
+    sku: str
+    pedido: Optional[dict]
+    elegibilidad: Optional[dict]
+    etiqueta: Optional[dict]
+    decision: Optional[dict]
+
+
 class ReturnAgent:
     def __init__(self):
         self.client = _make_client()
@@ -64,57 +107,17 @@ class ReturnAgent:
 
         model = SETTINGS["general"]["model"]
         temp = SETTINGS["general"].get("temperature", 0)
-        # Instantiate OllamaLLM using keyword args so pydantic/LangChain BaseModel init works
+        # Instantiate the small LLM wrapper with configured model and temperature
         self.llm = OllamaLLM(client=self.client, model=model, temperature=temp)
 
-        # register tools
-        tools = [
-            Tool(
-                name="consultar_estado_pedido",
-                func=self._consultar_estado_pedido,
-                description="Verifica si un pedido existe y devuelve estado y fecha. Entrada: tracking ID (string).",
-            ),
-            Tool(
-                name="verificar_elegibilidad_producto",
-                func=self._verificar_elegibilidad_producto,
-                description=(
-                    "Evalúa si un producto es retornable según el pedido y políticas internas. "
-                    "Entrada: order_id (tracking), sku"
-                ),
-            ),
-            Tool(
-                name="consultar_politicas",
-                func=self._consultar_politicas,
-                description=(
-                    "Recupera fragmentos de políticas de devolución desde el índice RAG para una categoría o tema dado."
-                ),
-            ),
-            Tool(
-                name="generar_etiqueta_devolucion",
-                func=self._generar_etiqueta_devolucion,
-                description=(
-                    "Genera una etiqueta de devolución simulada (RMA y URL). Entrada: order_id, sku, carrier"
-                ),
-            ),
-        ]
-
-        # initialize a simple react agent
-        # enable handle_parsing_errors so the executor will pass parsing errors back
-        # to the agent (allowing the agent to retry) and set verbose for debug logs
-        self.agent_executor = initialize_agent(
-            tools,
-            self.llm,
-            agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-            verbose=True,
-            handle_parsing_errors=True,
-        )
+        
 
     # --- Tools implementation ---
     def _connect_db(self) -> sqlite3.Connection:
         # database file created by create_db.py: ecomarket.db
         return sqlite3.connect("ecomarket.db")
 
-    def _consultar_estado_pedido(self, order_id: str) -> str:
+    def _consultar_estado_pedido(self, order_id: str) -> dict:
         conn = self._connect_db()
         cur = conn.cursor()
         cur.execute("SELECT tracking, status, eta, last_update FROM orders WHERE tracking = ?", (order_id,))
@@ -128,7 +131,7 @@ class ReturnAgent:
         date_str = last_update or eta
         return {"exists": True, "status": status, "date": date_str}
 
-    def _verificar_elegibilidad_producto(self, order_id: str, sku: str) -> str:
+    def _verificar_elegibilidad_producto(self, order_id: str, sku: str) -> dict:
         # Basic eligibility rules:
         # - Order must exist and be delivered
         # - Product must be marked returnable in products table
@@ -186,36 +189,22 @@ class ReturnAgent:
         # otherwise eligible
         return {"eligible": True, "reason": "El producto cumple con las condiciones de devolución."}
 
-    def _consultar_politicas(self, categoria: str) -> str:
+    def _consultar_politicas(self, categoria: str) -> dict:
         docs = self.rag.get_relevant_chunks(categoria)
         if not docs:
-            return "No se han encontrado fragmentos de política para la categoría indicada."
+            return {"found": False, "message": "No se han encontrado fragmentos de política para la categoría indicada."}
         out = []
         for d in docs:
             src = d.metadata.get("source", "source")
             out.append(f"[{src}] {d.page_content.strip()}")
-        return "\n\n".join(out)
+        return {"found": True, "message": "\n\n".join(out)}
 
-    def _generar_etiqueta_devolucion(self, order_id: str, sku: str, carrier: str = "EcoShip") -> str:
-        # Simula la creación de una etiqueta devolviendo un RMA y una URL
+    def _generar_etiqueta_devolucion(self, order_id: str, sku: str, carrier: str = "EcoShip") -> dict:
         rma = "RMA-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
-        # Simulated URL - not hosted, but useful for UI and demo
         label_url = f"https://labels.ecomarket.test/{rma}.pdf"
         return {"label_url": label_url, "rma": rma}
 
-    # --- Intent extraction and deterministic pipeline ---
     def extract_intent(self, user_message: str) -> dict:
-        """
-        Use the LLM only to extract intent and simple fields from the user's message.
-
-        Returns a dict with keys:
-          - accion: "solicitar_devolucion" | "estado_pedido" | "politicas" | "otro"
-          - tracking_id: string or None
-          - sku: string or None
-
-        IMPORTANT: this function must return a Python dict. The LLM is instructed to
-        output ONLY a JSON object with those keys.
-        """
         prompt = (
             "Extrae la intención del siguiente mensaje y devuelve SOLO un JSON válido con las claves "
             "{\"accion\", \"tracking_id\", \"sku\"}. Los valores posibles para 'accion' son: "
@@ -250,14 +239,6 @@ class ReturnAgent:
             return {"accion": action, "tracking_id": tracking_match.group(1) if tracking_match else None, "sku": sku_match.group(1) if sku_match else None}
 
     def run_return_pipeline(self, tracking_id: str, sku: str) -> dict:
-        """
-        Deterministic orchestration for return flow.
-
-        Business rules (comments for developers):
-        - If exists is False -> stop and return rejected with motivo and mensaje_usuario.
-        - If eligible is False -> do not generate label; return reason exactly as provided by tool.
-        - Only if eligible is True -> call generar_etiqueta_devolucion and return aprobado with the exact rma and label_url.
-        """
         # Ensure we do not modify tool outputs: call tools and use the returned dicts/strings as-is
         estado = self._consultar_estado_pedido(tracking_id)
         # estado is expected to be a dict with keys: exists, status, date
@@ -301,11 +282,38 @@ class ReturnAgent:
         }
 
     def finalize_user_response(self, decision: dict) -> str:
-        """
-        Convert the decision dict from run_return_pipeline into a human-friendly message.
+        system_prompt = SETTINGS.get("prompts", {}).get("return_policy", "")
+        decision_json = json.dumps(decision, ensure_ascii=False, indent=2)
 
-        MUST NOT modify critical fields (rma, label_url, motivo). Only wrap them in text.
-        """
+        # Prepare simple placeholder mapping from common keys into the system prompt.
+        mapping = {
+            "rma": decision.get("rma", ""),
+            "label_url": decision.get("label_url", ""),
+            "name": decision.get("name", ""),
+            "sku": decision.get("sku", ""),
+            "tracking": decision.get("tracking_id", ""),
+            "motivo": decision.get("motivo", ""),
+            # provide the whole decision as CONTEXTO
+            "context": decision_json,
+        }
+
+        # Replace placeholders in the prompt. Support both {{key}} and {key} styles.
+        filled_prompt = system_prompt
+        for k, v in mapping.items():
+            safe = "" if v is None else str(v)
+            filled_prompt = filled_prompt.replace("{{" + k + "}}", safe)
+            filled_prompt = filled_prompt.replace("{" + k + "}", safe)
+
+        prompt = filled_prompt + "\n\n" + decision_json
+        try:
+            response = self.llm._call(prompt)
+            if response and response.strip():
+                return response
+        except Exception:
+            # fall through to deterministic fallback
+            pass
+
+        # deterministic fallback (previous behavior)
         status = decision.get("status")
         if status == "aprobado":
             rma = decision.get("rma")
@@ -323,7 +331,6 @@ class ReturnAgent:
             lines.append(decision.get("mensaje_usuario", ""))
             return "\n".join(lines)
 
-        # rechazado or others
         motivo = decision.get("motivo")
         pedido_status = decision.get("pedido_status")
         polit = decision.get("politicas")
@@ -331,7 +338,6 @@ class ReturnAgent:
         if pedido_status:
             lines.append(f"Estado del pedido: {pedido_status}.")
         if motivo:
-            # use motivo exactly as provided
             lines.append(f"Motivo: {motivo}")
         if polit:
             lines.append("Políticas relacionadas:")
@@ -339,16 +345,85 @@ class ReturnAgent:
         lines.append(decision.get("mensaje_usuario", ""))
         return "\n".join(lines)
 
+    # --- LangGraph nodes and graph builder ---
+    def consultar_estado_pedido_node(self, state: ReturnState):
+        tracking = state.get("tracking_id")
+        pedido = self._consultar_estado_pedido(tracking)
+        state["pedido"] = pedido
+        if not isinstance(pedido, dict) or not pedido.get("exists"):
+            state["decision"] = {
+                "status": "rechazado",
+                "motivo": f"El pedido {tracking} no existe o no fue encontrado.",
+                "mensaje_usuario": "No encontramos tu pedido. Verifica el número o revisa tu correo de confirmación.",
+                "pedido_status": pedido.get("status") if isinstance(pedido, dict) else None,
+            }
+            return END
+        return "verificar_elegibilidad"
+
+    def verificar_elegibilidad_node(self, state: ReturnState):
+        tracking = state.get("tracking_id")
+        sku = state.get("sku")
+        eleg = self._verificar_elegibilidad_producto(tracking, sku)
+        state["elegibilidad"] = eleg
+        if not isinstance(eleg, dict) or not eleg.get("eligible"):
+            return "consultar_politicas"
+        return "generar_etiqueta"
+
+    def consultar_politicas_node(self, state: ReturnState):
+        sku = state.get("sku") or "general"
+        polit = self._consultar_politicas(sku)
+        state["decision"] = {
+            "status": "rechazado",
+            "motivo": state.get("elegibilidad", {}).get("reason") if state.get("elegibilidad") else "Producto no elegible",
+            "politicas": polit,
+            "mensaje_usuario": "Tu producto no es elegible para devolución. Te explico por qué y qué alternativas tienes.",
+            "pedido_status": state.get("pedido", {}).get("status") if state.get("pedido") else None,
+        }
+        return END
+
+    def generar_etiqueta_node(self, state: ReturnState):
+        tracking = state.get("tracking_id")
+        sku = state.get("sku")
+        etiqueta = self._generar_etiqueta_devolucion(tracking, sku)
+        state["etiqueta"] = etiqueta
+        state["decision"] = {
+            "status": "aprobado",
+            "rma": etiqueta.get("rma") if isinstance(etiqueta, dict) else None,
+            "label_url": etiqueta.get("label_url") if isinstance(etiqueta, dict) else None,
+            "mensaje_usuario": "Tu devolución fue aprobada. Usa esta etiqueta y entrega el paquete en el punto indicado.",
+            "pedido_status": state.get("pedido", {}).get("status") if state.get("pedido") else None,
+        }
+        return END
+
+    def build_return_graph(self):
+        graph = StateGraph(ReturnState)
+
+        graph.add_node("consultar_estado_pedido", self.consultar_estado_pedido_node)
+        graph.add_node("verificar_elegibilidad", self.verificar_elegibilidad_node)
+        graph.add_node("consultar_politicas", self.consultar_politicas_node)
+        graph.add_node("generar_etiqueta", self.generar_etiqueta_node)
+
+        # Flujo: del estado al verificador de elegibilidad
+        graph.add_edge("consultar_estado_pedido", "verificar_elegibilidad")
+
+        # Condicional desde verificar_elegibilidad a politicas o generar_etiqueta
+        graph.add_conditional_edges(
+            "verificar_elegibilidad",
+            lambda state: "consultar_politicas" if not (state.get("elegibilidad") and state.get("elegibilidad").get("eligible")) else "generar_etiqueta",
+        )
+
+        graph.set_entry_point("consultar_estado_pedido")
+        graph.set_finish_point(END)
+
+        return graph.compile()
+
     # --- run agent ---
     def run(self, prompt: str) -> str:
-        """Run the LangChain agent with the user's prompt and return a string response.
+        """Run the agent: interpret intent, execute the LangGraph return flow, and render a response.
 
-        The agent has tools available; final output is returned as text. We keep the response
-        friendly by prefacing the model with the system prompt for returns from settings.toml.
+        The deterministic business flow lives in a LangGraph StateGraph. The LLM is used only
+        to extract the intent and for optional final textual polishing in `finalize_user_response`.
         """
-        # Construct an instruction that asks the agent to use the tools and answer warmly.
-        system_prompt = SETTINGS.get("prompts", {}).get("return_policy", "")
-        # Orchestrator: extract intent, then run deterministic pipelines for return flows.
         intent = self.extract_intent(prompt)
 
         accion = intent.get("accion")
@@ -365,7 +440,19 @@ class ReturnAgent:
                     missing.append("SKU del producto")
                 return f"Por favor proporciona {', '.join(missing)} para tramitar la devolución."
 
-            decision = self.run_return_pipeline(tracking, sku)
+            # Build initial graph state
+            state: ReturnState = {
+                "tracking_id": tracking,
+                "sku": sku,
+                "pedido": None,
+                "elegibilidad": None,
+                "etiqueta": None,
+                "decision": None,
+            }
+
+            graph = self.build_return_graph()
+            final_state = graph.invoke(state)
+            decision = final_state.get("decision") or {"status": "rechazado", "motivo": "Error interno"}
             return self.finalize_user_response(decision)
 
         elif accion == "estado_pedido":

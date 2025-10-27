@@ -46,12 +46,10 @@ Si el producto no es elegible, comunícalo con tacto y ofrece alternativas útil
 Siempre cierra ofreciendo apoyo adicional y recordando los canales de contacto.
 
 USER:
-El cliente quiere devolver el producto con SKU '{{sku}}'.
-Datos: entregado hace {{days_since_delivery}} días, abierto={{opened}}.
+El cliente quiere devolver el producto con SKU '{sku}'.
 Usa el CONTEXTO para determinar si la devolución es posible.
 
-IMPORTANTE (comportamiento respecto a la etiqueta):
-- Si el producto es elegible, DEBES invocar la herramienta `generar_etiqueta_devolucion(order_id, sku, carrier)` para crear la etiqueta y devolver el RMA y la URL (`label_url`).
+IMPORTANTE (comportamiento respecto a la etiqueta):.
 - No inventes ni simules URLs ni RMA en el texto; muestra exclusivamente los valores devueltos por la herramienta y proporciona instrucciones claras para descargar y usar la etiqueta.
 - Si la verificación muestra que no es elegible, puedes recuperar fragmentos de políticas con `consultar_politicas(categoria)` para explicar la razón.
 
@@ -66,13 +64,10 @@ Para proceder, por favor sigue estos pasos:
 1. Ingresa a tu cuenta en EcoMarket y dirígete a la sección "Mis pedidos".  
 2. Solicita la devolución y descarga la etiqueta de envío.  
 3. Empaca el producto en su empaque original.  
-4. Entrégalo al transportador asignado o en el punto autorizado más cercano.  
+4. Peque la etiqueta correspondiente al empaque. Enlace de la etiqueta: {{label_url}} 
+5. Entrégalo al transportador asignado o en el punto autorizado más cercano.  
 
 En cuanto recibamos el producto, procesaremos tu reembolso en un plazo de 5 a 7 días hábiles. 
-Etiquetas y RMA generadas:
-
-- RMA: RMA-XXXXXXXX 
-- Enlace de la etiqueta: https://labels.ecomarket.test/RMA-XXXXXXXX.pdf (muestra la URL devuelta por la herramienta)
 
 IMPORTANTE: No incluyas URLs ni códigos inventados. Muestra únicamente los valores retornados por `generar_etiqueta_devolucion`.
 
