@@ -53,9 +53,11 @@ with col_main:
         # ejemplos rápidos (ahora en el formulario)
         examples = ["-- elige un ejemplo --",
                     "Quiero devolver el pedido TRK-0004, el producto es el SKU-004",
-                    "¿Cuál es la política de devoluciones para productos de la categoría 'hogar'?",
-                    "Genera etiqueta para TRK-0004, SKU-004 usando EcoShip",
-                    "Quiero devolver TRK-0001 SKU-001. ¿Es posible?"]
+                    "Quiero devolver TRK-0001 SKU-001. ¿Es posible?",
+                    "Quiero devolver el pedido TRK-0039, el producto es el SKU-012",
+                    "Quiero devolver TRK-0021 SKU-019. ¿Es posible?",
+                    "Quiero devolver el pedido TRK-013, el producto es el SKU-0032"]
+        
         sel = st.selectbox("Ejemplos rápidos", examples)
         if sel != examples[0]:
             prompt_box = sel
