@@ -81,6 +81,83 @@ El flujo del agente se basa en tres etapas: comprensión, decisión y ejecución
 Para desarrollar el agente de IA, se utilizó LangGraph como framework principal, integrando un sistema RAG (Retrieval-Augmented Generation) que permite consultar políticas de devolución almacenadas en una base vectorial. El agente combina capacidades de recuperación de información con herramientas específicas que simulan operaciones reales del sistema EcoMarket. Se implementó un flujo basado en grafos de estados que permite al agente tomar decisiones inteligentes sobre cuándo consultar documentación, ejecutar herramientas o generar respuestas finales, manteniendo coherencia contextual en cada interacción.
 
 
+### Estructura del proyecto
+
+Este repositorio está organizado para separar claramente responsabilidades: orquestación del agente, herramientas, RAG, tests y la interfaz Streamlit.
+
+Estructura principal:
+
+- `app.py` — punto de entrada (opcional) para integraciones o pruebas rápidas.
+- `create_db.py` — script para crear y poblar la base de datos SQLite (`ecomarket.db`) con datos de ejemplo.
+- `requirements.txt` — dependencias Python necesarias para ejecutar el proyecto.
+- `settings.toml` — configuración (modelo, prompts, políticas).
+- `streamlit_app.py` — interfaz web para interactuar con el agente en modo demo.
+- `agent/return_agent.py` — implementación principal del agente de devoluciones: extracción de intención, orquestación determinista (grafo), llamadas a herramientas y renderizado de la respuesta final.
+- `data/` — CSVs de ejemplo (`orders.csv`, `products.csv`) usados por `create_db.py`.
+- `rag/ingest.py` — script para indexar documentos/políticas en el vector store (RAG).
+- `rag/retriever.py` — interfaz de alto nivel para recuperar fragmentos de políticas desde el vector store.
+
+
+### Cómo usar este proyecto (rápido)
+
+1. Clona el repositorio y sitúate en la carpeta del proyecto.
+2. Crea y activa un entorno virtual (recomendado):
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+3. Instala dependencias:
+
+```powershell
+pip install -r requirements.txt
+```
+
+4. Configura variables de entorno necesarias (opcional según uso de LLM local):
+
+- `OPENAI_API_KEY` — clave API o valor `ollama` si usas Ollama en local.
+- `OPENAI_BASE_URL` — URL base del servicio LLM (por defecto `http://localhost:11434/v1`).
+
+### Crear la base de datos (create_db.py)
+
+El proyecto incluye `create_db.py` que crea una base de datos SQLite (`ecomarket.db`) y la rellena con datos de ejemplo contenidos en `data/orders.csv` y `data/products.csv`.
+
+Para crear la DB de ejemplo ejecuta:
+
+```powershell
+python .\create_db.py
+```
+
+Al finalizar tendrás `ecomarket.db` en la raíz del proyecto y el agente podrá consultar pedidos y productos.
+
+### Ingest (RAG)
+
+El directorio `rag/` contiene las utilidades para indexar fragmentos de políticas en el vector store. Antes de ejecutar el agente con búsqueda de políticas, indexa tus documentos:
+
+```powershell
+python .\rag\ingest.py
+```
+
+Notas:
+- `rag/ingest.py` usa la configuración por defecto del `rag/retriever.py`. Revisa y ajusta credenciales o parámetros si estás usando un servicio de vector store remotos.
+- Tras ejecutar el `ingest`, el vector store (por ejemplo `chroma/`) contendrá los vectores necesarios para las consultas de políticas.
+
+### Interfaz  Streamlit
+
+Puedes ejecutar la interfaz web con Streamlit para probar el agente de forma interactiva:
+
+```powershell
+streamlit run .\streamlit_app.py
+```
+
+La aplicación te permite enviar mensajes, ver la interpretación de intención y observar la ejecución de las herramientas (consulta de pedido, verificación de elegibilidad, generación de etiqueta y recuperación de políticas).
+
+### Consideraciones sobre el LLM
+
+- Por defecto la configuración apunta a un modelo local (`phi3:mini` en `settings.toml`). Si quieres conectar OpenAI u otro servicio, define `OPENAI_API_KEY` y ajusta `OPENAI_BASE_URL`.
+- El agente está diseñado para usar el LLM solo en tareas no deterministas (p. ej. redactar la respuesta final usando `finalize_user_response`) y para extracción de intención. Las decisiones del negocio (elegibilidad, verificación, rma) se toman con lógica determinista en Python y usando las salidas de las herramientas.
+
 ---
 
 ## Fase 3 — Análisis Crítico y Propuestas de Mejora
